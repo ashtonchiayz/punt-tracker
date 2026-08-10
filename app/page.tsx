@@ -19,6 +19,7 @@ import { ExpenseModal } from '@/components/ExpenseModal';
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeCurrency, setActiveCurrency] = useState<Currency | 'all'>('all');
+  const [selectedMember, setSelectedMember] = useState<Member | 'all'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
@@ -126,7 +127,12 @@ export default function Home() {
 
         {/* 4 High-Level KPI Balance Cards */}
         <section>
-          <KpiCards balances={netBalances} activeCurrency={activeCurrency} />
+          <KpiCards
+            balances={netBalances}
+            activeCurrency={activeCurrency}
+            selectedMember={selectedMember}
+            onSelectMember={setSelectedMember}
+          />
         </section>
 
         {/* Simplified Debt Settle-Up Plan & Pairwise Matrix Grid */}
