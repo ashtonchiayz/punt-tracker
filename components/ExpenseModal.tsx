@@ -165,7 +165,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 ? 'Edit Entry'
                 : isBetCategory
                 ? '🎲 Log Wager / Bet'
-                : 'Log New Expense'}
+                : 'Log New Transaction'}
             </h2>
             <p className="text-xs text-slate-400">
               {isBetCategory

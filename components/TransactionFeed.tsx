@@ -169,13 +169,21 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 mt-0.5 truncate">
-                      <span>
-                        Paid by <strong className="text-zinc-200">{tx.paidBy}</strong>
-                      </span>
-                      <span>•</span>
-                      <span className="truncate">
-                        Split: {tx.owers.join(', ')}
-                      </span>
+                      {tx.isSettlement ? (
+                        <span className="truncate">
+                          Settlement: <strong className="text-zinc-200">{tx.paidBy}</strong> ➔ <strong className="text-zinc-200">{tx.owers.join(', ')}</strong>
+                        </span>
+                      ) : (
+                        <>
+                          <span>
+                            Won by <strong className="text-zinc-200">{tx.paidBy}</strong>
+                          </span>
+                          <span>•</span>
+                          <span className="truncate">
+                            Owed by: <strong className="text-zinc-200">{tx.owers.join(', ')}</strong>
+                          </span>
+                        </>
+                      )}
                       <span className="hidden sm:inline">•</span>
                       <span className="text-zinc-500 font-mono text-[10px] hidden sm:inline">{tx.date}</span>
                     </div>

@@ -183,8 +183,6 @@ export function formatAmount(amount: number, currency: Currency): string {
       return `${numStr} arb`;
     case 'rr':
       return `$${numStr} rr`;
-    case 'rr*':
-      return `$${numStr} rr*`;
     default:
       return `${numStr} ${currency}`;
   }

@@ -10,7 +10,7 @@ interface CurrencyTabsProps {
 }
 
 export const CurrencyTabs: React.FC<CurrencyTabsProps> = ({ activeCurrency, onChange }) => {
-  const options = [{ id: 'all', label: 'All Currencies', symbol: '∑' }, ...CURRENCIES];
+  const options = [{ id: 'all', label: 'All Currencies', shortLabel: 'All', symbol: '∑' }, ...CURRENCIES];
 
   return (
     <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900/80 border border-white/10 backdrop-blur-xl shadow-sm">
@@ -56,7 +56,7 @@ export const CurrencyTabs: React.FC<CurrencyTabsProps> = ({ activeCurrency, onCh
                 }`}
               >
                 <span className="font-mono text-[11px] opacity-80">[{tab.symbol}]</span>
-                <span>{tab.label.split(' ')[0]}</span>
+                <span>{tab.shortLabel || tab.label}</span>
               </button>
             );
           })}

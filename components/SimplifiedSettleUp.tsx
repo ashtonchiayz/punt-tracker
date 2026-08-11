@@ -18,7 +18,7 @@ export const SimplifiedSettleUp: React.FC<SimplifiedSettleUpProps> = ({
   onSettle,
 }) => {
   const currenciesToAnalyze: Currency[] =
-    activeCurrency === 'all' ? ['r', 'arb', 'rr', 'rr*'] : [activeCurrency];
+    activeCurrency === 'all' ? ['r', 'arb', 'rr'] : [activeCurrency];
 
   const allTransfers: SimplifiedTransfer[] = [];
 

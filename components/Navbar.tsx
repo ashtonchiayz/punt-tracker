@@ -2,21 +2,15 @@
 
 import React from 'react';
 import { MEMBERS, MEMBER_INFO } from '@/lib/types';
-import { Plus, RotateCcw, Trash2, Wallet } from 'lucide-react';
+import { Plus, Wallet } from 'lucide-react';
 
 interface NavbarProps {
   onOpenAddModal: () => void;
-  onResetSeed: () => void;
-  onClearAll: () => void;
-  transactionCount: number;
   storageMode?: 'supabase' | 'local';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenAddModal,
-  onResetSeed,
-  onClearAll,
-  transactionCount,
   storageMode = 'local',
 }) => {
   return (
@@ -69,35 +63,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </div>
 
-        {/* Header Action Buttons (Min 44px Touch Targets) */}
+        {/* Header Action: Add Transaction Button */}
         <div className="flex items-center gap-2">
           <button
-            onClick={onResetSeed}
-            title="Reset to exact debt tally"
-            className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 rounded-full border border-white/10 transition-colors flex items-center gap-1.5"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
-
-          {transactionCount > 0 && (
-            <button
-              onClick={onClearAll}
-              title="Clear all transactions"
-              className="min-h-[44px] px-3.5 py-2 text-xs font-medium text-zinc-400 hover:text-red-400 bg-zinc-900 hover:bg-zinc-800 rounded-full border border-white/10 transition-colors flex items-center gap-1.5"
-            >
-              <Trash2 className="h-3.5 w-3.5 text-red-400" />
-              <span className="hidden sm:inline">Clear</span>
-            </button>
-          )}
-
-          {/* Desktop Add Expense SF Blue Button */}
-          <button
             onClick={onOpenAddModal}
-            className="hidden md:flex items-center gap-1.5 min-h-[44px] px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-full shadow-lg shadow-blue-600/20 active:scale-[0.98] transition-all border border-blue-400/20"
+            className="flex items-center gap-1.5 min-h-[44px] px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-full shadow-lg shadow-blue-600/20 active:scale-[0.98] transition-all border border-blue-400/20"
           >
             <Plus className="h-4 w-4" />
-            <span>Add Expense</span>
+            <span>Add Transaction</span>
           </button>
         </div>
       </div>

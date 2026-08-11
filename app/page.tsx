@@ -129,9 +129,6 @@ export default function Home() {
       {/* Top Navbar */}
       <Navbar
         onOpenAddModal={handleOpenAdd}
-        onResetSeed={handleResetSeed}
-        onClearAll={handleClearAll}
-        transactionCount={transactions.length}
         storageMode={storageMode}
       />
 
@@ -182,7 +179,7 @@ export default function Home() {
         className="md:hidden fixed bottom-5 right-5 z-40 flex items-center gap-2 min-h-[48px] px-5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-full shadow-2xl shadow-blue-600/40 active:scale-95 transition-all border border-blue-400/30"
       >
         <Plus className="h-5 w-5" />
-        <span>Add Expense</span>
+        <span>Add Transaction</span>
       </button>
 
       {/* Footer */}

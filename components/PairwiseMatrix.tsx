@@ -10,7 +10,7 @@ interface PairwiseMatrixProps {
   activeCurrency: Currency | 'all';
 }
 
-const ALL_CURRENCIES: Currency[] = ['r', 'arb', 'rr', 'rr*'];
+const ALL_CURRENCIES: Currency[] = ['r', 'arb', 'rr'];
 
 export const PairwiseMatrix: React.FC<PairwiseMatrixProps> = ({ transactions, activeCurrency }) => {
   const [matrixMode, setMatrixMode] = useState<'direct' | 'net'>('direct');

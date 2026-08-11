@@ -9,13 +9,12 @@ export const MEMBER_INFO: Record<Member, { name: string; avatar: string; color: 
   Cy:   { name: 'Cy',   avatar: '♥️', color: '#ec4899', bgLight: 'rgba(236, 72, 153, 0.15)' },
 };
 
-export type Currency = 'r' | 'arb' | 'rr' | 'rr*';
+export type Currency = 'r' | 'arb' | 'rr';
 
-export const CURRENCIES: { id: Currency; label: string; symbol: string; description: string }[] = [
-  { id: 'r', label: 'Real (r)', symbol: 'r', description: 'Standard monetary currency' },
-  { id: 'arb', label: 'Arbitrary (arb)', symbol: 'arb', description: 'Arbitrary points & IOUs' },
-  { id: 'rr', label: 'Real Real (rr)', symbol: 'rr', description: 'Strict real cash settlements' },
-  { id: 'rr*', label: 'Real Real* (rr*)', symbol: 'rr*', description: 'Special real real asterisk credit' },
+export const CURRENCIES: { id: Currency; label: string; shortLabel: string; symbol: string; description: string }[] = [
+  { id: 'r', label: 'Real (r)', shortLabel: 'Real', symbol: 'r', description: 'Standard monetary currency' },
+  { id: 'arb', label: 'Arbitrary (arb)', shortLabel: 'Arbitrary', symbol: 'arb', description: 'Arbitrary points & IOUs' },
+  { id: 'rr', label: 'Real Real (rr)', shortLabel: 'Real Real', symbol: 'rr', description: 'Strict real cash settlements' },
 ];
 
 export type CategoryTag = 'Food' | 'Activity' | 'Transport' | 'Bet' | 'Misc' | 'Settlement';
