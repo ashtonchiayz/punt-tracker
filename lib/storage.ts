@@ -37,7 +37,7 @@ export function dbRowToTransaction(row: DBTransaction): Transaction {
     date: row.date,
     createdAt: row.created_at,
     isSettlement: Boolean(row.is_settlement),
-    status: (row.status as any) || 'completed',
+    status: (row.status as any) === 'pending' ? 'pending' : 'completed',
     bettor: (row.bettor as any) || undefined,
     opponent: (row.opponent as any) || undefined,
   };
@@ -67,7 +67,7 @@ export interface IStorageAdapter {
   getStorageMode(): StorageMode;
   fetchTransactions(): Promise<Transaction[]>;
   addTransaction(tx: Omit<Transaction, 'id' | 'createdAt'>): Promise<Transaction>;
-  updateTransaction(tx: Transaction): Promise<void>;
+  updateTransaction(updatedTx: Transaction): Promise<void>;
   deleteTransaction(id: string): Promise<void>;
   resetToSeed(): Promise<Transaction[]>;
   clearAll(): Promise<Transaction[]>;
@@ -82,26 +82,25 @@ export class LocalStorageAdapter implements IStorageAdapter {
   getTransactionsSync(): Transaction[] {
     if (typeof window === 'undefined') return [];
     try {
-      const data = localStorage.getItem(STORAGE_KEY);
-      if (!data) return [];
-      return JSON.parse(data);
-    } catch (e) {
-      console.error('Failed to parse LocalStorage transactions:', e);
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      return JSON.parse(raw);
+    } catch {
       return [];
+    }
+  }
+
+  saveSync(transactions: Transaction[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    } catch (e) {
+      console.error('Failed to save to localStorage:', e);
     }
   }
 
   async fetchTransactions(): Promise<Transaction[]> {
     return this.getTransactionsSync();
-  }
-
-  saveSync(txs: Transaction[]): void {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
-    } catch (e) {
-      console.error('Failed to save to LocalStorage:', e);
-    }
   }
 
   async addTransaction(txData: Omit<Transaction, 'id' | 'createdAt'>): Promise<Transaction> {
@@ -122,6 +121,8 @@ export class LocalStorageAdapter implements IStorageAdapter {
     if (idx !== -1) {
       list[idx] = updatedTx;
       this.saveSync(list);
+    } else {
+      this.saveSync([updatedTx, ...list]);
     }
   }
 
@@ -157,10 +158,6 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
     return 'supabase';
   }
 
-  /**
-   * Migrate any transactions existing in browser localStorage
-   * (e.g., from punt-tracker-beta.vercel.app before Supabase setup) to Supabase.
-   */
   private async migrateLocalDataIfNeeded(remoteDbIds: Set<string>): Promise<void> {
     if (typeof window === 'undefined' || this.isMigrated) return;
 
@@ -192,14 +189,8 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
     }
 
     if (unmigrated.length > 0) {
-      console.log(`Migrating ${unmigrated.length} local transactions to Supabase...`);
       const rows = unmigrated.map(transactionToDbRow);
-      const { error } = await supabase.from('transactions').upsert(rows);
-      if (error) {
-        console.error('Failed to migrate local transactions to Supabase:', error);
-      } else {
-        console.log('Successfully synced local transactions to Supabase!');
-      }
+      await supabase.from('transactions').upsert(rows);
     }
 
     this.isMigrated = true;
@@ -221,29 +212,31 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
         return this.localFallback.fetchTransactions();
       }
 
-      const transactions = (data as DBTransaction[]).map(dbRowToTransaction);
-      const remoteDbIds = new Set(transactions.map((t) => t.id));
+      const remoteTransactions = (data as DBTransaction[]).map(dbRowToTransaction);
+      const remoteDbIds = new Set(remoteTransactions.map((t) => t.id));
 
-      // Migrate any previously logged local transactions to Supabase
       await this.migrateLocalDataIfNeeded(remoteDbIds);
 
-      // If migration uploaded new items, re-fetch final set from Supabase
-      if (remoteDbIds.size > transactions.length) {
-        const { data: updatedData } = await supabase
-          .from('transactions')
-          .select('*')
-          .order('created_at', { ascending: false });
+      // Merge local cached transactions with remote transactions so locally logged pending bets or offline entries are NEVER lost
+      const localCached = this.localFallback.getTransactionsSync();
+      const mergedMap = new Map<string, Transaction>();
 
-        if (updatedData) {
-          const finalTxs = (updatedData as DBTransaction[]).map(dbRowToTransaction);
-          this.localFallback.saveSync(finalTxs);
-          return finalTxs;
+      // Remote DB takes priority for existing IDs
+      remoteTransactions.forEach((t) => mergedMap.set(t.id, t));
+
+      // Preserve any local entries not yet in remote DB
+      localCached.forEach((t) => {
+        if (!mergedMap.has(t.id)) {
+          mergedMap.set(t.id, t);
         }
-      }
+      });
 
-      // Keep local cache synced for offline access
-      this.localFallback.saveSync(transactions);
-      return transactions;
+      const mergedList = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      this.localFallback.saveSync(mergedList);
+      return mergedList;
     } catch (err) {
       console.error('Failed to fetch transactions from Supabase:', err);
       return this.localFallback.fetchTransactions();
@@ -257,8 +250,12 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
       createdAt: new Date().toISOString(),
     };
 
+    // Always update local cache immediately for instant UI reflection
+    const cached = this.localFallback.getTransactionsSync();
+    this.localFallback.saveSync([newTx, ...cached.filter((t) => t.id !== newTx.id)]);
+
     if (typeof window !== 'undefined' && !navigator.onLine) {
-      return this.localFallback.addTransaction(txData);
+      return newTx;
     }
 
     try {
@@ -266,24 +263,21 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
       const { error } = await supabase.from('transactions').insert([dbRow]);
 
       if (error) {
-        console.error('Supabase insert error, saving locally:', error);
-        return this.localFallback.addTransaction(txData);
+        console.error('Supabase insert error, saved locally:', error);
       }
-
-      // Also update local cache
-      const cached = this.localFallback.getTransactionsSync();
-      this.localFallback.saveSync([newTx, ...cached.filter((t) => t.id !== newTx.id)]);
 
       return newTx;
     } catch (err) {
       console.error('Failed to add transaction to Supabase:', err);
-      return this.localFallback.addTransaction(txData);
+      return newTx;
     }
   }
 
   async updateTransaction(updatedTx: Transaction): Promise<void> {
+    // Instantly update local cache
+    await this.localFallback.updateTransaction(updatedTx);
+
     if (typeof window !== 'undefined' && !navigator.onLine) {
-      await this.localFallback.updateTransaction(updatedTx);
       return;
     }
 
@@ -296,73 +290,53 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
 
       if (error) {
         console.error('Supabase update error:', error);
-        await this.localFallback.updateTransaction(updatedTx);
-        return;
       }
-
-      await this.localFallback.updateTransaction(updatedTx);
     } catch (err) {
       console.error('Failed to update transaction in Supabase:', err);
-      await this.localFallback.updateTransaction(updatedTx);
     }
   }
 
   async deleteTransaction(id: string): Promise<void> {
+    await this.localFallback.deleteTransaction(id);
+
     if (typeof window !== 'undefined' && !navigator.onLine) {
-      await this.localFallback.deleteTransaction(id);
       return;
     }
 
     try {
       const { error } = await supabase.from('transactions').delete().eq('id', id);
-
       if (error) {
         console.error('Supabase delete error:', error);
-        await this.localFallback.deleteTransaction(id);
-        return;
       }
-
-      await this.localFallback.deleteTransaction(id);
     } catch (err) {
       console.error('Failed to delete transaction in Supabase:', err);
-      await this.localFallback.deleteTransaction(id);
     }
   }
 
   async resetToSeed(): Promise<Transaction[]> {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      return this.localFallback.resetToSeed();
-    }
-
-    try {
-      const { error } = await supabase.from('transactions').delete().neq('id', '');
-      if (error) console.error('Supabase reset error:', error);
-    } catch (err) {
-      console.error('Failed to reset Supabase transactions:', err);
-    }
     this.localFallback.saveSync([]);
+    try {
+      await supabase.from('transactions').delete().neq('id', 'dummy');
+    } catch (e) {
+      console.error('Error clearing Supabase:', e);
+    }
     return [];
   }
 
   async clearAll(): Promise<Transaction[]> {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      return this.localFallback.clearAll();
-    }
-
-    try {
-      const { error } = await supabase.from('transactions').delete().neq('id', '');
-      if (error) console.error('Supabase clearAll error:', error);
-    } catch (err) {
-      console.error('Failed to clear Supabase transactions:', err);
-    }
     this.localFallback.saveSync([]);
+    try {
+      await supabase.from('transactions').delete().neq('id', 'dummy');
+    } catch (e) {
+      console.error('Error clearing Supabase:', e);
+    }
     return [];
   }
 
   subscribeToTransactions(onUpdate: (transactions: Transaction[]) => void): () => void {
-    const client = supabase;
+    if (typeof window === 'undefined') return () => {};
 
-    const channel = client
+    const channel = supabase
       .channel('public:transactions')
       .on(
         'postgres_changes',
@@ -374,21 +348,8 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
       )
       .subscribe();
 
-    // Online reconnection listener to auto sync local data when network comes online
-    const handleOnline = async () => {
-      const fresh = await this.fetchTransactions();
-      onUpdate(fresh);
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('online', handleOnline);
-    }
-
     return () => {
-      client.removeChannel(channel);
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('online', handleOnline);
-      }
+      supabase.removeChannel(channel);
     };
   }
 }

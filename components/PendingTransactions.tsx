@@ -25,11 +25,7 @@ export const PendingTransactions: React.FC<PendingTransactionsProps> = ({
   onDeletePending,
   onOpenAddModal,
 }) => {
-  const pendingList = transactions.filter((tx) => {
-    if (tx.status !== 'pending') return false;
-    if (activeCurrency !== 'all' && tx.currency !== activeCurrency) return false;
-    return true;
-  });
+  const pendingList = transactions.filter((tx) => tx.status === 'pending');
 
   const handleResolveOutcome = (tx: Transaction, bettorWon: boolean) => {
     const bettor = tx.bettor || tx.paidBy || 'Chia';
