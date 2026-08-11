@@ -43,6 +43,7 @@ export interface Transaction {
   date: string; // YYYY-MM-DD
   createdAt: string; // ISO string timestamp
   isSettlement?: boolean;
+  status?: 'pending' | 'completed';
 }
 
 export interface MemberBalance {

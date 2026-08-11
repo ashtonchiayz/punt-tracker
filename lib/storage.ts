@@ -18,6 +18,7 @@ export interface DBTransaction {
   date: string;
   created_at: string;
   is_settlement: boolean;
+  status?: string;
 }
 
 export function dbRowToTransaction(row: DBTransaction): Transaction {
@@ -34,6 +35,7 @@ export function dbRowToTransaction(row: DBTransaction): Transaction {
     date: row.date,
     createdAt: row.created_at,
     isSettlement: Boolean(row.is_settlement),
+    status: (row.status as any) || 'completed',
   };
 }
 
@@ -51,6 +53,7 @@ export function transactionToDbRow(tx: Transaction): DBTransaction {
     date: tx.date,
     created_at: tx.createdAt,
     is_settlement: Boolean(tx.isSettlement),
+    status: tx.status || 'completed',
   };
 }
 

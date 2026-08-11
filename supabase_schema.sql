@@ -16,8 +16,12 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     category TEXT NOT NULL,
     date TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    is_settlement BOOLEAN DEFAULT FALSE
+    is_settlement BOOLEAN DEFAULT FALSE,
+    status TEXT DEFAULT 'completed'
 );
+
+-- Migration statement for existing table installations
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'completed';
 
 -- 2. Enable Row Level Security (RLS)
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;

@@ -43,6 +43,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   });
   const [category, setCategory] = useState<CategoryTag>('Bet');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [status, setStatus] = useState<'completed' | 'pending'>('completed');
 
   useEffect(() => {
     if (initialData) {
@@ -54,6 +55,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setOwers(initialData.owers);
       setCategory(initialData.category);
       setDate(initialData.date);
+      setStatus(initialData.status || 'completed');
       if (initialData.exactSplits) {
         const exactObj: Record<Member, string> = { Sidd: '', Chia: '', Yh: '', Cy: '' };
         MEMBERS.forEach((m) => {
@@ -62,7 +64,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         setExactSplits(exactObj);
       }
     } else {
-      // Reset defaults: default winner is Sidd, so losers default to [Chia, Yh, Cy]
       setDescription('');
       setAmount('');
       setCurrency('r');
@@ -72,6 +73,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setExactSplits({ Sidd: '', Chia: '', Yh: '', Cy: '' });
       setCategory('Bet');
       setDate(new Date().toISOString().split('T')[0]);
+      setStatus('completed');
     }
   }, [initialData, isOpen]);
 
@@ -145,6 +147,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         category,
         date,
         isSettlement: category === 'Settlement',
+        status,
       },
       initialData?.id
     );
@@ -183,6 +186,37 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
         {/* Modal Body / Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Entry Type Toggle */}
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-slate-300">
+              Entry Status
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setStatus('completed')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px] ${
+                  status === 'completed'
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Completed Entry
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatus('pending')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px] ${
+                  status === 'pending'
+                    ? 'bg-amber-600 border-amber-500 text-white shadow-sm'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Pending Bet (TBD)
+              </button>
+            </div>
+          </div>
+
           {/* Category Selector at Top */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

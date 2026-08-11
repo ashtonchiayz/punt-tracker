@@ -38,10 +38,11 @@ export function calculateNetBalances(
   transactions: Transaction[],
   currencyFilter?: Currency | 'all'
 ): Record<Member, MemberBalance> {
-  const filtered =
-    !currencyFilter || currencyFilter === 'all'
-      ? transactions
-      : transactions.filter((t) => t.currency === currencyFilter);
+  const filtered = transactions.filter((t) => {
+    if (t.status === 'pending') return false;
+    if (currencyFilter && currencyFilter !== 'all' && t.currency !== currencyFilter) return false;
+    return true;
+  });
 
   const result: Record<Member, MemberBalance> = {
     Sidd: { member: 'Sidd', totalPaid: 0, totalOwed: 0, netBalance: 0 },
@@ -85,10 +86,11 @@ export function calculatePairwiseMatrix(
     Cy:   { Sidd: 0, Chia: 0, Yh: 0, Cy: 0 },
   };
 
-  const filtered =
-    !currencyFilter || currencyFilter === 'all'
-      ? transactions
-      : transactions.filter((t) => t.currency === currencyFilter);
+  const filtered = transactions.filter((t) => {
+    if (t.status === 'pending') return false;
+    if (currencyFilter && currencyFilter !== 'all' && t.currency !== currencyFilter) return false;
+    return true;
+  });
 
   filtered.forEach((tx) => {
     const payer = tx.paidBy;

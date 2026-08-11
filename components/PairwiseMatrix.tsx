@@ -3,16 +3,21 @@
 import React, { useState } from 'react';
 import { Member, MEMBERS, MEMBER_INFO, Currency, Transaction } from '@/lib/types';
 import { calculatePairwiseMatrix, formatAmount } from '@/lib/calculations';
-import { Grid, Info } from 'lucide-react';
+import { Grid, Info, CheckCircle2 } from 'lucide-react';
 
 interface PairwiseMatrixProps {
   transactions: Transaction[];
   activeCurrency: Currency | 'all';
+  onCellSettle?: (debtor: Member, creditor: Member, amount: number, currency: Currency) => void;
 }
 
 const ALL_CURRENCIES: Currency[] = ['r', 'arb', 'rr'];
 
-export const PairwiseMatrix: React.FC<PairwiseMatrixProps> = ({ transactions, activeCurrency }) => {
+export const PairwiseMatrix: React.FC<PairwiseMatrixProps> = ({
+  transactions,
+  activeCurrency,
+  onCellSettle,
+}) => {
   const [matrixMode, setMatrixMode] = useState<'direct' | 'net'>('direct');
   const [hoveredCell, setHoveredCell] = useState<{ row: Member; col: Member } | null>(null);
 
@@ -43,6 +48,15 @@ export const PairwiseMatrix: React.FC<PairwiseMatrixProps> = ({ transactions, ac
     return results;
   };
 
+  const handleCellClick = (row: Member, col: Member) => {
+    if (row === col || !onCellSettle) return;
+    const debts = getCellDebts(row, col);
+    if (debts.length > 0) {
+      // Pick the first currency debt item to settle
+      onCellSettle(row, col, debts[0].amount, debts[0].currency);
+    }
+  };
+
   return (
     <div className="rounded-2xl bg-zinc-900/80 p-4 sm:p-6 border border-white/10 backdrop-blur-xl shadow-sm overflow-hidden space-y-4">
       {/* Header */}
@@ -56,7 +70,7 @@ export const PairwiseMatrix: React.FC<PairwiseMatrixProps> = ({ transactions, ac
               Pairwise Debt Matrix
             </h2>
             <p className="text-xs text-zinc-400">
-              Interactive ledger grid • Row person owes Column person
+              Interactive ledger grid • Row person owes Column person (Click cell to settle)
             </p>
           </div>
         </div>
@@ -138,13 +152,15 @@ export const PairwiseMatrix: React.FC<PairwiseMatrixProps> = ({ transactions, ac
                         key={colMember}
                         onMouseEnter={() => setHoveredCell({ row: rowMember, col: colMember })}
                         onMouseLeave={() => setHoveredCell(null)}
+                        onClick={() => handleCellClick(rowMember, colMember)}
+                        title={hasValue ? 'Click to settle debt directly' : undefined}
                         className={`p-3 text-center border border-zinc-800 transition-all font-mono text-xs ${
                           isDiagonal
                             ? 'bg-black/80 text-zinc-700 select-none'
                             : isHovered
-                            ? 'bg-blue-500/20 border-blue-500/50 shadow-inner'
+                            ? 'bg-blue-500/20 border-blue-500/50 shadow-inner cursor-pointer'
                             : hasValue
-                            ? 'bg-rose-500/10 text-rose-400 font-bold'
+                            ? 'bg-rose-500/10 text-rose-400 font-bold hover:bg-rose-500/20 cursor-pointer'
                             : 'bg-black/30 text-zinc-600'
                         }`}
                       >
@@ -172,31 +188,38 @@ export const PairwiseMatrix: React.FC<PairwiseMatrixProps> = ({ transactions, ac
       </div>
 
       {/* Explainer Footer */}
-      <div className="p-3 rounded-xl bg-black/60 border border-zinc-800 flex items-center gap-2 text-xs text-zinc-400">
-        <Info className="h-4 w-4 text-blue-400 shrink-0" />
-        {hoveredCell && hoveredCell.row !== hoveredCell.col ? (
-          <div>
-            <span className="font-semibold text-white">
-              {MEMBER_INFO[hoveredCell.row].name}
-            </span>{' '}
-            owes{' '}
-            <span className="font-semibold text-white">
-              {MEMBER_INFO[hoveredCell.col].name}
-            </span>{' '}
-            :{' '}
-            {getCellDebts(hoveredCell.row, hoveredCell.col).length > 0 ? (
-              <span className="font-mono font-bold text-rose-400 ml-1">
-                {getCellDebts(hoveredCell.row, hoveredCell.col)
-                  .map((d) => formatAmount(d.amount, d.currency))
-                  .join(', ')}
-              </span>
-            ) : (
-              <span className="font-mono text-zinc-400 ml-1">0</span>
-            )}
-          </div>
-        ) : (
-          <span>Hover or tap matrix cells to highlight directional balances</span>
-        )}
+      <div className="p-3 rounded-xl bg-black/60 border border-zinc-800 flex items-center justify-between gap-2 text-xs text-zinc-400">
+        <div className="flex items-center gap-2">
+          <Info className="h-4 w-4 text-blue-400 shrink-0" />
+          {hoveredCell && hoveredCell.row !== hoveredCell.col ? (
+            <div>
+              <span className="font-semibold text-white">
+                {MEMBER_INFO[hoveredCell.row].name}
+              </span>{' '}
+              owes{' '}
+              <span className="font-semibold text-white">
+                {MEMBER_INFO[hoveredCell.col].name}
+              </span>{' '}
+              :{' '}
+              {getCellDebts(hoveredCell.row, hoveredCell.col).length > 0 ? (
+                <span className="font-mono font-bold text-rose-400 ml-1">
+                  {getCellDebts(hoveredCell.row, hoveredCell.col)
+                    .map((d) => formatAmount(d.amount, d.currency))
+                    .join(', ')}
+                </span>
+              ) : (
+                <span className="font-mono text-zinc-400 ml-1">0</span>
+              )}
+            </div>
+          ) : (
+            <span>Tap any active debt cell to bring up the Settlement Modal</span>
+          )}
+        </div>
+
+        <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-400 font-semibold">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span>Click to Settle</span>
+        </div>
       </div>
     </div>
   );
