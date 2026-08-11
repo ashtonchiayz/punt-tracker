@@ -1,12 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import {
-  Member,
-  Currency,
-  Transaction,
-} from '@/lib/types';
-import { storageAdapter } from '@/lib/storage';
+import { Member, Currency, Transaction } from '@/lib/types';
+import { storageAdapter, StorageMode } from '@/lib/storage';
 import { calculateNetBalances } from '@/lib/calculations';
 import { Navbar } from '@/components/Navbar';
 import { CurrencyTabs } from '@/components/CurrencyTabs';
@@ -22,15 +18,40 @@ export default function Home() {
   const [selectedMember, setSelectedMember] = useState<Member | 'all'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [storageMode, setStorageMode] = useState<StorageMode>('local');
 
-  // Load initial transactions on mount
+  // Initial fetch and real-time subscription setup
   useEffect(() => {
-    const loaded = storageAdapter.getTransactions();
-    setTransactions(loaded);
+    let unsubscribe: () => void = () => {};
+
+    const initStorage = async () => {
+      setIsLoading(true);
+      setStorageMode(storageAdapter.getStorageMode());
+
+      const loaded = await storageAdapter.fetchTransactions();
+      setTransactions(loaded);
+      setIsLoading(false);
+
+      unsubscribe = storageAdapter.subscribeToTransactions((updated) => {
+        setTransactions(updated);
+      });
+    };
+
+    initStorage();
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
+  const refreshTransactions = async () => {
+    const fresh = await storageAdapter.fetchTransactions();
+    setTransactions(fresh);
+  };
+
   // Handlers for storage updates
-  const handleSaveTransaction = (
+  const handleSaveTransaction = async (
     txData: Omit<Transaction, 'id' | 'createdAt'>,
     existingId?: string
   ) => {
@@ -40,43 +61,43 @@ export default function Home() {
         id: existingId,
         createdAt: editingTransaction?.createdAt || new Date().toISOString(),
       };
-      storageAdapter.updateTransaction(updatedTx);
+      await storageAdapter.updateTransaction(updatedTx);
     } else {
-      storageAdapter.addTransaction(txData);
+      await storageAdapter.addTransaction(txData);
     }
-    setTransactions(storageAdapter.getTransactions());
+    await refreshTransactions();
     setEditingTransaction(null);
   };
 
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
     if (confirm('Are you sure you want to delete this expense?')) {
-      storageAdapter.deleteTransaction(id);
-      setTransactions(storageAdapter.getTransactions());
+      await storageAdapter.deleteTransaction(id);
+      await refreshTransactions();
     }
   };
 
-  const handleResetSeed = () => {
+  const handleResetSeed = async () => {
     if (confirm('Reset to exact debt tally from spreadsheet?')) {
-      const seeded = storageAdapter.resetToSeed();
+      const seeded = await storageAdapter.resetToSeed();
       setTransactions(seeded);
     }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (confirm('Clear all transactions? This will erase all logged entries.')) {
-      const cleared = storageAdapter.clearAll();
+      const cleared = await storageAdapter.clearAll();
       setTransactions(cleared);
     }
   };
 
-  const handleQuickSettle = (
+  const handleQuickSettle = async (
     from: string,
     to: string,
     amount: number,
     currency: Currency
   ) => {
     // Log a settlement transaction
-    storageAdapter.addTransaction({
+    await storageAdapter.addTransaction({
       description: `Settlement: ${from} ➔ ${to}`,
       amount,
       currency,
@@ -88,7 +109,7 @@ export default function Home() {
       isSettlement: true,
     });
 
-    setTransactions(storageAdapter.getTransactions());
+    await refreshTransactions();
   };
 
   const handleOpenEdit = (tx: Transaction) => {
@@ -118,6 +139,7 @@ export default function Home() {
         onResetSeed={handleResetSeed}
         onClearAll={handleClearAll}
         transactionCount={transactions.length}
+        storageMode={storageMode}
       />
 
       {/* Main Content Area */}
@@ -125,36 +147,45 @@ export default function Home() {
         {/* Currency Tabs Filter */}
         <CurrencyTabs activeCurrency={activeCurrency} onChange={setActiveCurrency} />
 
-        {/* 4 High-Level KPI Balance Cards */}
-        <section>
-          <KpiCards
-            balances={netBalances}
-            activeCurrency={activeCurrency}
-            selectedMember={selectedMember}
-            onSelectMember={setSelectedMember}
-          />
-        </section>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 space-y-3 text-slate-400">
+            <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs font-medium tracking-wide">Syncing transactions...</p>
+          </div>
+        ) : (
+          <>
+            {/* 4 High-Level KPI Balance Cards */}
+            <section>
+              <KpiCards
+                balances={netBalances}
+                activeCurrency={activeCurrency}
+                selectedMember={selectedMember}
+                onSelectMember={setSelectedMember}
+              />
+            </section>
 
-        {/* Simplified Debt Settle-Up Plan & Pairwise Matrix Grid */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <SimplifiedSettleUp
-            transactions={transactions}
-            activeCurrency={activeCurrency}
-            onSettle={handleQuickSettle}
-          />
+            {/* Simplified Debt Settle-Up Plan & Pairwise Matrix Grid */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <SimplifiedSettleUp
+                transactions={transactions}
+                activeCurrency={activeCurrency}
+                onSettle={handleQuickSettle}
+              />
 
-          <PairwiseMatrix transactions={transactions} activeCurrency={activeCurrency} />
-        </section>
+              <PairwiseMatrix transactions={transactions} activeCurrency={activeCurrency} />
+            </section>
 
-        {/* Transaction Feed */}
-        <section>
-          <TransactionFeed
-            transactions={transactions}
-            activeCurrency={activeCurrency}
-            onEdit={handleOpenEdit}
-            onDelete={handleDeleteTransaction}
-          />
-        </section>
+            {/* Transaction Feed */}
+            <section>
+              <TransactionFeed
+                transactions={transactions}
+                activeCurrency={activeCurrency}
+                onEdit={handleOpenEdit}
+                onDelete={handleDeleteTransaction}
+              />
+            </section>
+          </>
+        )}
       </main>
 
       {/* Footer */}

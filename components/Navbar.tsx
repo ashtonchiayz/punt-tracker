@@ -9,6 +9,7 @@ interface NavbarProps {
   onResetSeed: () => void;
   onClearAll: () => void;
   transactionCount: number;
+  storageMode?: 'supabase' | 'local';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -16,6 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onResetSeed,
   onClearAll,
   transactionCount,
+  storageMode = 'local',
 }) => {
   return (
     <header className="sticky top-0 z-30 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80 transition-all">
@@ -32,9 +34,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
                 Punt Tracker
               </h1>
-              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                v2.0
-              </span>
+              {storageMode === 'supabase' ? (
+                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Live Sync
+                </span>
+              ) : (
+                <span
+                  className="px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1.5"
+                  title="Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable live cloud sync"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  Local Mode
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">
               Sidd • Chia • Yh • Cy Shared Ledger & Debt Simplifier
