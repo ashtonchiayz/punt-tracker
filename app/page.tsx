@@ -11,12 +11,11 @@ import { SimplifiedSettleUp } from '@/components/SimplifiedSettleUp';
 import { PairwiseMatrix } from '@/components/PairwiseMatrix';
 import { TransactionFeed } from '@/components/TransactionFeed';
 import { ExpenseModal } from '@/components/ExpenseModal';
-import { PlusCircle } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeCurrency, setActiveCurrency] = useState<Currency | 'all'>('all');
-  const [selectedMember, setSelectedMember] = useState<Member | 'all'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,13 +125,7 @@ export default function Home() {
   const netBalances = calculateNetBalances(transactions, activeCurrency);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white pb-16 md:pb-0">
-      {/* Ambient background lights */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[128px]" />
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[128px]" />
-      </div>
-
+    <div className="min-h-screen bg-black text-zinc-100 flex flex-col selection:bg-blue-500 selection:text-white pb-20 md:pb-6">
       {/* Top Navbar */}
       <Navbar
         onOpenAddModal={handleOpenAdd}
@@ -148,29 +141,26 @@ export default function Home() {
         <CurrencyTabs activeCurrency={activeCurrency} onChange={setActiveCurrency} />
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16 space-y-3 text-slate-400">
-            <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center justify-center py-16 space-y-3 text-zinc-400">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             <p className="text-xs font-medium tracking-wide">Syncing transactions...</p>
           </div>
         ) : (
           <>
             {/* Member Balances Overview (Swipeable carousel on mobile) */}
             <section>
-              <KpiCards
-                balances={netBalances}
-                activeCurrency={activeCurrency}
-                selectedMember={selectedMember}
-                onSelectMember={setSelectedMember}
-              />
+              <KpiCards balances={netBalances} activeCurrency={activeCurrency} />
             </section>
 
-            {/* Simplified Settle-Up Plan */}
-            <section>
+            {/* Simplified Settle-Up Plan & Pairwise Matrix Grid (2-col desktop, 1-col mobile) */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SimplifiedSettleUp
                 transactions={transactions}
                 activeCurrency={activeCurrency}
                 onSettle={handleQuickSettle}
               />
+
+              <PairwiseMatrix transactions={transactions} activeCurrency={activeCurrency} />
             </section>
 
             {/* Transaction Feed Log */}
@@ -182,27 +172,22 @@ export default function Home() {
                 onDelete={handleDeleteTransaction}
               />
             </section>
-
-            {/* Collapsible Advanced Stats: Pairwise Debt Matrix */}
-            <section>
-              <PairwiseMatrix transactions={transactions} activeCurrency={activeCurrency} />
-            </section>
           </>
         )}
       </main>
 
-      {/* Mobile Sticky Floating Action Button (FAB) */}
+      {/* Mobile Sticky Floating Action Button (FAB) (Min 48px touch target) */}
       <button
         onClick={handleOpenAdd}
-        className="md:hidden fixed bottom-5 right-5 z-40 flex items-center gap-2 px-5 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-sm rounded-full shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all border border-emerald-400/30"
+        className="md:hidden fixed bottom-5 right-5 z-40 flex items-center gap-2 min-h-[48px] px-5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-full shadow-2xl shadow-blue-600/40 active:scale-95 transition-all border border-blue-400/30"
       >
-        <PlusCircle className="h-5 w-5" />
+        <Plus className="h-5 w-5" />
         <span>Add Expense</span>
       </button>
 
       {/* Footer */}
-      <footer className="relative z-10 py-6 border-t border-slate-900 bg-slate-950/80 text-center text-xs text-slate-500">
-        <p>Punt Tracker • Sidd, Chia, Yh, Cy Expense & Debt Ledger</p>
+      <footer className="relative z-10 py-6 border-t border-white/10 bg-black text-center text-xs text-zinc-500">
+        <p>Punt Tracker • Sidd, Chia, Yh, Cy Shared Expense & Debt Ledger</p>
       </footer>
 
       {/* Add / Edit Expense Modal */}

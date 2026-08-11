@@ -1,67 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Member, MEMBERS, MEMBER_INFO, Currency, MemberBalance } from '@/lib/types';
 import { formatAmount } from '@/lib/calculations';
-import { ArrowUpRight, ArrowDownRight, CheckCircle2, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
 
 interface KpiCardsProps {
   balances: Record<Member, MemberBalance>;
   activeCurrency: Currency | 'all';
-  selectedMember: Member | 'all';
-  onSelectMember: (member: Member | 'all') => void;
 }
 
-export const KpiCards: React.FC<KpiCardsProps> = ({
-  balances,
-  activeCurrency,
-  selectedMember,
-  onSelectMember,
-}) => {
-  const [showSubMetrics, setShowSubMetrics] = useState<Record<Member, boolean>>({
-    Sidd: false,
-    Chia: false,
-    Yh: false,
-    Cy: false,
-  });
-
+export const KpiCards: React.FC<KpiCardsProps> = ({ balances, activeCurrency }) => {
   const displayCurrency: Currency = activeCurrency === 'all' ? 'r' : activeCurrency;
 
-  const toggleSubMetrics = (e: React.MouseEvent, m: Member) => {
-    e.stopPropagation();
-    setShowSubMetrics((prev) => ({ ...prev, [m]: !prev[m] }));
-  };
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {/* Section Header */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Member Balances
+          <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+            Member Overview
           </h2>
-          <span className="text-[10px] text-slate-500 font-medium md:hidden">
-            (Swipe left/right)
+          <span className="text-[10px] text-zinc-500 font-medium md:hidden">
+            (Swipe horizontally)
           </span>
         </div>
-        {selectedMember !== 'all' && (
-          <button
-            onClick={() => onSelectMember('all')}
-            className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20"
-          >
-            <Filter className="h-3 w-3" />
-            <span>Show All</span>
-          </button>
-        )}
       </div>
 
       {/* Cards Container: Mobile horizontal snap carousel / Desktop 4-col grid */}
-      <div className="flex overflow-x-auto snap-x snap-mandatory space-x-3 pb-2 pt-1 px-1 md:grid md:grid-cols-4 md:space-x-0 md:gap-4 md:overflow-visible md:pb-0 scrollbar-none">
+      <div className="flex overflow-x-auto snap-x snap-mandatory space-x-3 pb-2 pt-0.5 px-1 md:grid md:grid-cols-4 md:space-x-0 md:gap-4 md:overflow-visible md:pb-0 scrollbar-none">
         {MEMBERS.map((m) => {
           const info = MEMBER_INFO[m];
           const bal = balances[m] || { member: m, totalPaid: 0, totalOwed: 0, netBalance: 0 };
-          const isSelected = selectedMember === m;
-          const isExpanded = showSubMetrics[m];
 
           const isNetCreditor = bal.netBalance > 0.009;
           const isNetDebtor = bal.netBalance < -0.009;
@@ -69,16 +39,11 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
           return (
             <div
               key={m}
-              onClick={() => onSelectMember(isSelected ? 'all' : m)}
-              className={`snap-center min-w-[260px] sm:min-w-[280px] shrink-0 md:min-w-0 md:shrink group relative cursor-pointer overflow-hidden rounded-2xl p-4.5 text-left border backdrop-blur-xl shadow-lg transition-all duration-300 ${
-                isSelected
-                  ? 'bg-slate-900 border-indigo-500 ring-2 ring-indigo-500/40 shadow-indigo-500/10'
-                  : 'bg-slate-900/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/90'
-              }`}
+              className="snap-center min-w-[260px] sm:min-w-[280px] shrink-0 md:min-w-0 md:shrink relative overflow-hidden rounded-2xl p-4.5 text-left border border-white/10 bg-zinc-900/80 backdrop-blur-xl shadow-sm transition-all"
             >
               {/* Subtle ambient accent glow */}
               <div
-                className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-3xl opacity-20 pointer-events-none transition-all group-hover:opacity-35"
+                className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-3xl opacity-15 pointer-events-none"
                 style={{ backgroundColor: info.color }}
               />
 
@@ -92,12 +57,9 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
                     {info.avatar}
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-100 text-sm leading-tight flex items-center gap-1">
+                    <h3 className="font-bold text-white text-sm leading-tight">
                       {info.name}
                     </h3>
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      {isSelected ? 'Filtering' : 'Click to filter'}
-                    </span>
                   </div>
                 </div>
 
@@ -108,7 +70,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
                       ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                       : isNetDebtor
                       ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                      : 'bg-zinc-800/80 text-zinc-400 border-zinc-700/80'
                   }`}
                 >
                   {isNetCreditor ? (
@@ -132,7 +94,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
 
               {/* Main Net Balance Display */}
               <div className="my-2">
-                <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">
+                <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-0.5">
                   Net Balance {activeCurrency !== 'all' ? `(${activeCurrency})` : ''}
                 </div>
                 <div
@@ -141,7 +103,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
                       ? 'text-emerald-400'
                       : isNetDebtor
                       ? 'text-rose-400'
-                      : 'text-slate-300'
+                      : 'text-zinc-300'
                   }`}
                 >
                   {isNetCreditor ? '+' : ''}
@@ -149,39 +111,25 @@ export const KpiCards: React.FC<KpiCardsProps> = ({
                 </div>
               </div>
 
-              {/* Sub-Metrics Toggle Button */}
-              <div className="pt-2 border-t border-slate-800/60 mt-3 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={(e) => toggleSubMetrics(e, m)}
-                  className="text-[11px] font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1 transition-colors py-0.5"
-                >
-                  <span>{isExpanded ? 'Hide details' : 'View total up/down'}</span>
-                  {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </button>
-              </div>
-
-              {/* Expandable Sub-metrics (Total Paid / Total Owed) */}
-              {isExpanded && (
-                <div className="mt-2.5 pt-2.5 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs animate-fadeIn">
-                  <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800/60">
-                    <span className="text-slate-500 block text-[10px] uppercase font-bold">
-                      Total up:
-                    </span>
-                    <span className="font-mono text-slate-200 font-bold">
-                      {formatAmount(bal.totalPaid, displayCurrency)}
-                    </span>
-                  </div>
-                  <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800/60">
-                    <span className="text-slate-500 block text-[10px] uppercase font-bold">
-                      Total down:
-                    </span>
-                    <span className="font-mono text-slate-200 font-bold">
-                      {formatAmount(bal.totalOwed, displayCurrency)}
-                    </span>
-                  </div>
+              {/* Sub-metrics: Total Paid / Total Owed */}
+              <div className="pt-2.5 border-t border-white/10 mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-black/50 p-2 rounded-xl border border-white/5">
+                  <span className="text-zinc-500 block text-[10px] uppercase font-bold">
+                    Total up:
+                  </span>
+                  <span className="font-mono text-zinc-200 font-bold">
+                    {formatAmount(bal.totalPaid, displayCurrency)}
+                  </span>
                 </div>
-              )}
+                <div className="bg-black/50 p-2 rounded-xl border border-white/5">
+                  <span className="text-zinc-500 block text-[10px] uppercase font-bold">
+                    Total down:
+                  </span>
+                  <span className="font-mono text-zinc-200 font-bold">
+                    {formatAmount(bal.totalOwed, displayCurrency)}
+                  </span>
+                </div>
+              </div>
             </div>
           );
         })}
