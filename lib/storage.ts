@@ -1,5 +1,5 @@
 import { Transaction } from './types';
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase } from './supabase';
 
 const STORAGE_KEY = 'punt_tracker_transactions_v4';
 
@@ -86,7 +86,7 @@ export class LocalStorageAdapter implements IStorageAdapter {
     return this.getTransactionsSync();
   }
 
-  private saveSync(txs: Transaction[]): void {
+  saveSync(txs: Transaction[]): void {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
@@ -133,20 +133,71 @@ export class LocalStorageAdapter implements IStorageAdapter {
   }
 
   subscribeToTransactions(_onUpdate: (transactions: Transaction[]) => void): () => void {
-    // No-op for LocalStorage
     return () => {};
   }
 }
 
 export class SupabaseStorageAdapter implements IStorageAdapter {
   private localFallback = new LocalStorageAdapter();
+  private isMigrated = false;
 
   getStorageMode(): StorageMode {
-    return isSupabaseConfigured && supabase ? 'supabase' : 'local';
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      return 'local';
+    }
+    return 'supabase';
+  }
+
+  /**
+   * Migrate any transactions existing in browser localStorage
+   * (e.g., from punt-tracker-beta.vercel.app before Supabase setup) to Supabase.
+   */
+  private async migrateLocalDataIfNeeded(remoteDbIds: Set<string>): Promise<void> {
+    if (typeof window === 'undefined' || this.isMigrated) return;
+
+    const keysToScan = [
+      'punt_tracker_transactions_v4',
+      'punt_tracker_transactions_v3',
+      'punt_tracker_transactions_v2',
+      'punt_tracker_transactions',
+    ];
+
+    const unmigrated: Transaction[] = [];
+
+    for (const key of keysToScan) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed: Transaction[] = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (item && item.id && !remoteDbIds.has(item.id)) {
+              unmigrated.push(item);
+              remoteDbIds.add(item.id);
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`Error parsing local storage key ${key}:`, e);
+      }
+    }
+
+    if (unmigrated.length > 0) {
+      console.log(`Migrating ${unmigrated.length} local transactions to Supabase...`);
+      const rows = unmigrated.map(transactionToDbRow);
+      const { error } = await supabase.from('transactions').upsert(rows);
+      if (error) {
+        console.error('Failed to migrate local transactions to Supabase:', error);
+      } else {
+        console.log('Successfully synced local transactions to Supabase!');
+      }
+    }
+
+    this.isMigrated = true;
   }
 
   async fetchTransactions(): Promise<Transaction[]> {
-    if (!isSupabaseConfigured || !supabase) {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
       return this.localFallback.fetchTransactions();
     }
 
@@ -161,7 +212,29 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
         return this.localFallback.fetchTransactions();
       }
 
-      return (data as DBTransaction[]).map(dbRowToTransaction);
+      const transactions = (data as DBTransaction[]).map(dbRowToTransaction);
+      const remoteDbIds = new Set(transactions.map((t) => t.id));
+
+      // Migrate any previously logged local transactions to Supabase
+      await this.migrateLocalDataIfNeeded(remoteDbIds);
+
+      // If migration uploaded new items, re-fetch final set from Supabase
+      if (remoteDbIds.size > transactions.length) {
+        const { data: updatedData } = await supabase
+          .from('transactions')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (updatedData) {
+          const finalTxs = (updatedData as DBTransaction[]).map(dbRowToTransaction);
+          this.localFallback.saveSync(finalTxs);
+          return finalTxs;
+        }
+      }
+
+      // Keep local cache synced for offline access
+      this.localFallback.saveSync(transactions);
+      return transactions;
     } catch (err) {
       console.error('Failed to fetch transactions from Supabase:', err);
       return this.localFallback.fetchTransactions();
@@ -169,24 +242,28 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
   }
 
   async addTransaction(txData: Omit<Transaction, 'id' | 'createdAt'>): Promise<Transaction> {
-    if (!isSupabaseConfigured || !supabase) {
-      return this.localFallback.addTransaction(txData);
-    }
-
     const newTx: Transaction = {
       ...txData,
       id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
       createdAt: new Date().toISOString(),
     };
 
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      return this.localFallback.addTransaction(txData);
+    }
+
     try {
       const dbRow = transactionToDbRow(newTx);
       const { error } = await supabase.from('transactions').insert([dbRow]);
 
       if (error) {
-        console.error('Supabase insert error:', error);
+        console.error('Supabase insert error, saving locally:', error);
         return this.localFallback.addTransaction(txData);
       }
+
+      // Also update local cache
+      const cached = this.localFallback.getTransactionsSync();
+      this.localFallback.saveSync([newTx, ...cached.filter((t) => t.id !== newTx.id)]);
 
       return newTx;
     } catch (err) {
@@ -196,8 +273,9 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
   }
 
   async updateTransaction(updatedTx: Transaction): Promise<void> {
-    if (!isSupabaseConfigured || !supabase) {
-      return this.localFallback.updateTransaction(updatedTx);
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      await this.localFallback.updateTransaction(updatedTx);
+      return;
     }
 
     try {
@@ -210,7 +288,10 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
       if (error) {
         console.error('Supabase update error:', error);
         await this.localFallback.updateTransaction(updatedTx);
+        return;
       }
+
+      await this.localFallback.updateTransaction(updatedTx);
     } catch (err) {
       console.error('Failed to update transaction in Supabase:', err);
       await this.localFallback.updateTransaction(updatedTx);
@@ -218,8 +299,9 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
   }
 
   async deleteTransaction(id: string): Promise<void> {
-    if (!isSupabaseConfigured || !supabase) {
-      return this.localFallback.deleteTransaction(id);
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      await this.localFallback.deleteTransaction(id);
+      return;
     }
 
     try {
@@ -228,7 +310,10 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
       if (error) {
         console.error('Supabase delete error:', error);
         await this.localFallback.deleteTransaction(id);
+        return;
       }
+
+      await this.localFallback.deleteTransaction(id);
     } catch (err) {
       console.error('Failed to delete transaction in Supabase:', err);
       await this.localFallback.deleteTransaction(id);
@@ -236,7 +321,7 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
   }
 
   async resetToSeed(): Promise<Transaction[]> {
-    if (!isSupabaseConfigured || !supabase) {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
       return this.localFallback.resetToSeed();
     }
 
@@ -246,11 +331,12 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
     } catch (err) {
       console.error('Failed to reset Supabase transactions:', err);
     }
+    this.localFallback.saveSync([]);
     return [];
   }
 
   async clearAll(): Promise<Transaction[]> {
-    if (!isSupabaseConfigured || !supabase) {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
       return this.localFallback.clearAll();
     }
 
@@ -260,14 +346,11 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
     } catch (err) {
       console.error('Failed to clear Supabase transactions:', err);
     }
+    this.localFallback.saveSync([]);
     return [];
   }
 
   subscribeToTransactions(onUpdate: (transactions: Transaction[]) => void): () => void {
-    if (!isSupabaseConfigured || !supabase) {
-      return () => {};
-    }
-
     const client = supabase;
 
     const channel = client
@@ -282,8 +365,21 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
       )
       .subscribe();
 
+    // Online reconnection listener to auto sync local data when network comes online
+    const handleOnline = async () => {
+      const fresh = await this.fetchTransactions();
+      onUpdate(fresh);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+    }
+
     return () => {
       client.removeChannel(channel);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+      }
     };
   }
 }
