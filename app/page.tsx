@@ -11,6 +11,7 @@ import { SimplifiedSettleUp } from '@/components/SimplifiedSettleUp';
 import { PairwiseMatrix } from '@/components/PairwiseMatrix';
 import { TransactionFeed } from '@/components/TransactionFeed';
 import { ExpenseModal } from '@/components/ExpenseModal';
+import { PlusCircle } from 'lucide-react';
 
 export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -96,7 +97,6 @@ export default function Home() {
     amount: number,
     currency: Currency
   ) => {
-    // Log a settlement transaction
     await storageAdapter.addTransaction({
       description: `Settlement: ${from} ➔ ${to}`,
       amount,
@@ -126,8 +126,8 @@ export default function Home() {
   const netBalances = calculateNetBalances(transactions, activeCurrency);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white">
-      {/* Background radial ambient lights */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white pb-16 md:pb-0">
+      {/* Ambient background lights */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[128px]" />
         <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[128px]" />
@@ -143,8 +143,8 @@ export default function Home() {
       />
 
       {/* Main Content Area */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-8">
-        {/* Currency Tabs Filter */}
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-6">
+        {/* Currency Scope Filter */}
         <CurrencyTabs activeCurrency={activeCurrency} onChange={setActiveCurrency} />
 
         {isLoading ? (
@@ -154,7 +154,7 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {/* 4 High-Level KPI Balance Cards */}
+            {/* Member Balances Overview (Swipeable carousel on mobile) */}
             <section>
               <KpiCards
                 balances={netBalances}
@@ -164,18 +164,16 @@ export default function Home() {
               />
             </section>
 
-            {/* Simplified Debt Settle-Up Plan & Pairwise Matrix Grid */}
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Simplified Settle-Up Plan */}
+            <section>
               <SimplifiedSettleUp
                 transactions={transactions}
                 activeCurrency={activeCurrency}
                 onSettle={handleQuickSettle}
               />
-
-              <PairwiseMatrix transactions={transactions} activeCurrency={activeCurrency} />
             </section>
 
-            {/* Transaction Feed */}
+            {/* Transaction Feed Log */}
             <section>
               <TransactionFeed
                 transactions={transactions}
@@ -184,9 +182,23 @@ export default function Home() {
                 onDelete={handleDeleteTransaction}
               />
             </section>
+
+            {/* Collapsible Advanced Stats: Pairwise Debt Matrix */}
+            <section>
+              <PairwiseMatrix transactions={transactions} activeCurrency={activeCurrency} />
+            </section>
           </>
         )}
       </main>
+
+      {/* Mobile Sticky Floating Action Button (FAB) */}
+      <button
+        onClick={handleOpenAdd}
+        className="md:hidden fixed bottom-5 right-5 z-40 flex items-center gap-2 px-5 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-sm rounded-full shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all border border-emerald-400/30"
+      >
+        <PlusCircle className="h-5 w-5" />
+        <span>Add Expense</span>
+      </button>
 
       {/* Footer */}
       <footer className="relative z-10 py-6 border-t border-slate-900 bg-slate-950/80 text-center text-xs text-slate-500">
