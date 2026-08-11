@@ -12,7 +12,7 @@ import {
   SplitMode,
   Transaction,
 } from '@/lib/types';
-import { X, Trophy, Coins, CheckSquare, Square } from 'lucide-react';
+import { X, Trophy, Coins, CheckSquare, Square, Hourglass } from 'lucide-react';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -45,6 +45,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [status, setStatus] = useState<'completed' | 'pending'>('completed');
 
+  // Pending Wager specific fields
+  const [bettor, setBettor] = useState<Member>('Chia');
+  const [opponent, setOpponent] = useState<Member>('Yh');
+
   useEffect(() => {
     if (initialData) {
       setDescription(initialData.description);
@@ -56,6 +60,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setCategory(initialData.category);
       setDate(initialData.date);
       setStatus(initialData.status || 'completed');
+      setBettor(initialData.bettor || initialData.paidBy || 'Chia');
+      setOpponent(initialData.opponent || (initialData.owers && initialData.owers[0]) || 'Yh');
       if (initialData.exactSplits) {
         const exactObj: Record<Member, string> = { Sidd: '', Chia: '', Yh: '', Cy: '' };
         MEMBERS.forEach((m) => {
@@ -74,18 +80,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setCategory('Bet');
       setDate(new Date().toISOString().split('T')[0]);
       setStatus('completed');
+      setBettor('Chia');
+      setOpponent('Yh');
     }
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
 
-  // When Winner (paidBy) changes, auto-deselect Winner from Losers (owers) list!
   const handleWinnerChange = (winner: Member) => {
     setPaidBy(winner);
-    // Remove winner from losers list
     const updatedOwers = owers.filter((m) => m !== winner);
     if (updatedOwers.length === 0) {
-      // Default to all other members if empty
       setOwers(MEMBERS.filter((m) => m !== winner));
     } else {
       setOwers(updatedOwers);
@@ -105,7 +110,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const toggleSelectAllOwers = () => {
     const availableLosers = MEMBERS.filter((m) => m !== paidBy);
     if (owers.length === availableLosers.length) {
-      // Keep at least 1 loser
       setOwers([availableLosers[0]]);
     } else {
       setOwers([...availableLosers]);
@@ -123,10 +127,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       alert('Please enter a description.');
       return;
     }
-    if (owers.length === 0) {
-      alert('Please select at least one person who lost this amount.');
-      return;
-    }
 
     const exactObj: Partial<Record<Member, number>> = {};
     if (splitMode === 'exact') {
@@ -135,22 +135,47 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       });
     }
 
-    onSave(
-      {
-        description: description.trim(),
-        amount: parsedAmount,
-        currency,
-        paidBy,
-        splitMode,
-        owers,
-        exactSplits: splitMode === 'exact' ? exactObj : undefined,
-        category,
-        date,
-        isSettlement: category === 'Settlement',
-        status,
-      },
-      initialData?.id
-    );
+    if (status === 'pending') {
+      onSave(
+        {
+          description: description.trim(),
+          amount: parsedAmount,
+          currency,
+          paidBy: bettor,
+          splitMode: 'equal',
+          owers: [opponent],
+          category: 'Bet',
+          date,
+          isSettlement: false,
+          status: 'pending',
+          bettor,
+          opponent,
+        },
+        initialData?.id
+      );
+    } else {
+      if (owers.length === 0) {
+        alert('Please select at least one person who lost this amount.');
+        return;
+      }
+
+      onSave(
+        {
+          description: description.trim(),
+          amount: parsedAmount,
+          currency,
+          paidBy,
+          splitMode,
+          owers,
+          exactSplits: splitMode === 'exact' ? exactObj : undefined,
+          category,
+          date,
+          isSettlement: category === 'Settlement',
+          status: 'completed',
+        },
+        initialData?.id
+      );
+    }
 
     onClose();
   };
@@ -158,27 +183,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const isBetCategory = category === 'Bet';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+      <div className="relative w-full max-w-xl rounded-3xl bg-zinc-900 border border-white/10 shadow-2xl overflow-hidden my-8 text-white">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/50">
           <div>
-            <h2 className="text-lg font-bold text-slate-100">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
               {initialData
-                ? 'Edit Entry'
+                ? 'Edit Transaction'
+                : status === 'pending'
+                ? '🎲 Log Pending Bet'
                 : isBetCategory
-                ? '🎲 Log Wager / Bet'
+                ? '🎲 Log Completed Wager'
                 : 'Log New Transaction'}
             </h2>
-            <p className="text-xs text-slate-400">
-              {isBetCategory
-                ? 'Record who won and who lost money on a bet'
-                : 'Record a shared transaction for the group'}
+            <p className="text-xs text-zinc-400">
+              {status === 'pending'
+                ? 'Record a pending bet to decide win/loss later'
+                : 'Record a completed group transaction'}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -186,19 +213,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
         {/* Modal Body / Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Entry Type Toggle */}
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold text-slate-300">
-              Entry Status
+          {/* Entry Status Segmented Control */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider">
+              Transaction Status Type
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-black border border-white/10">
               <button
                 type="button"
                 onClick={() => setStatus('completed')}
-                className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px] ${
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all min-h-[44px] ${
                   status === 'completed'
-                    ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
                 Completed Entry
@@ -206,27 +233,28 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               <button
                 type="button"
                 onClick={() => setStatus('pending')}
-                className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all min-h-[44px] ${
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all min-h-[44px] flex items-center justify-center gap-1.5 ${
                   status === 'pending'
-                    ? 'bg-amber-600 border-amber-500 text-white shadow-sm'
-                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                Pending Bet (TBD)
+                <Hourglass className="h-3.5 w-3.5" />
+                <span>Pending Bet (TBD)</span>
               </button>
             </div>
           </div>
 
-          {/* Category Selector at Top */}
+          {/* Category & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
                 Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as CategoryTag)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-emerald-500 font-medium"
+                className="w-full min-h-[44px] px-3.5 py-2 rounded-2xl bg-black border border-white/10 text-white text-xs font-semibold focus:outline-none focus:border-blue-500"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat.id} value={cat.id}>
@@ -237,7 +265,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
                 Date
               </label>
               <input
@@ -245,14 +273,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-emerald-500"
+                className="w-full min-h-[44px] px-3.5 py-2 rounded-2xl bg-black border border-white/10 text-white text-xs font-semibold focus:outline-none focus:border-blue-500 font-mono"
               />
             </div>
           </div>
 
           {/* Quick Presets */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase">
+            <label className="block text-[11px] font-bold text-zinc-400 mb-1 uppercase tracking-wider">
               Quick Suggestions
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -261,7 +289,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   key={preset}
                   type="button"
                   onClick={() => setDescription(preset)}
-                  className="px-2.5 py-1 text-xs rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-colors"
+                  className="px-3 py-1 text-xs rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-white/5"
                 >
                   + {preset}
                 </button>
@@ -272,7 +300,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           {/* Description & Amount */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
                 Description *
               </label>
               <input
@@ -280,17 +308,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 required
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={isBetCategory ? 'e.g., FIFA wager, Arb bet' : 'e.g., Dinner, Spin class'}
-                className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-sm"
+                placeholder={isBetCategory || status === 'pending' ? 'e.g., FIFA wager, Arsenal vs Chelsea' : 'e.g., Dinner, Car rental'}
+                className="w-full min-h-[44px] px-3.5 py-2 rounded-2xl bg-black border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 text-xs font-semibold"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
                 Amount *
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-2 text-slate-500 font-mono text-sm">$</span>
+                <span className="absolute left-3.5 top-3 text-zinc-500 font-mono text-xs font-bold">$</span>
                 <input
                   type="number"
                   step="any"
@@ -298,7 +326,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
-                  className="w-full pl-7 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 text-sm font-mono"
+                  className="w-full min-h-[44px] pl-7 pr-3.5 py-2 rounded-2xl bg-black border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 text-xs font-mono font-bold"
                 />
               </div>
             </div>
@@ -306,135 +334,180 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
           {/* Currency Selection */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-zinc-300 mb-1">
               Currency
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {CURRENCIES.map((curr) => (
                 <button
                   key={curr.id}
                   type="button"
                   onClick={() => setCurrency(curr.id)}
-                  className={`p-2 rounded-xl text-left border transition-all ${
+                  className={`p-2.5 rounded-2xl text-left border transition-all min-h-[44px] ${
                     currency === curr.id
-                      ? 'bg-emerald-500/10 border-emerald-500/60 text-emerald-300'
-                      : 'bg-slate-950 border-slate-800/80 text-slate-400 hover:border-slate-700'
+                      ? 'bg-blue-600/20 border-blue-500 text-blue-300 font-bold'
+                      : 'bg-black border-white/10 text-zinc-400 hover:border-zinc-700'
                   }`}
                 >
-                  <div className="font-mono text-xs font-bold">{curr.label}</div>
+                  <div className="font-mono text-xs">{curr.shortLabel} [{curr.symbol}]</div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Minimalist Winner Section */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-                <Trophy className="h-3.5 w-3.5" />
-                <span>Winner (Who WON the money)</span>
-              </label>
-            </div>
+          {/* Pending Bet Specific Bettor vs Opponent selection */}
+          {status === 'pending' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-black/60 border border-zinc-800">
+              <div>
+                <label className="block text-xs font-bold text-amber-400 mb-1">
+                  Bettor (Making the wager)
+                </label>
+                <select
+                  value={bettor}
+                  onChange={(e) => {
+                    const b = e.target.value as Member;
+                    setBettor(b);
+                    if (opponent === b) {
+                      setOpponent(MEMBERS.find((m) => m !== b) || 'Yh');
+                    }
+                  }}
+                  className="w-full min-h-[44px] px-3.5 py-2 rounded-2xl bg-black border border-white/10 text-white text-xs font-semibold focus:outline-none focus:border-amber-500"
+                >
+                  {MEMBERS.map((m) => (
+                    <option key={m} value={m}>
+                      {MEMBER_INFO[m].avatar} {MEMBER_INFO[m].name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="grid grid-cols-4 gap-2">
-              {MEMBERS.map((m) => {
-                const info = MEMBER_INFO[m];
-                const isSelected = paidBy === m;
-                return (
+              <div>
+                <label className="block text-xs font-bold text-zinc-300 mb-1">
+                  Opponent (Target person)
+                </label>
+                <select
+                  value={opponent}
+                  onChange={(e) => setOpponent(e.target.value as Member)}
+                  className="w-full min-h-[44px] px-3.5 py-2 rounded-2xl bg-black border border-white/10 text-white text-xs font-semibold focus:outline-none focus:border-blue-500"
+                >
+                  {MEMBERS.filter((m) => m !== bettor).map((m) => (
+                    <option key={m} value={m}>
+                      {MEMBER_INFO[m].avatar} {MEMBER_INFO[m].name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Winner Section */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                  <Trophy className="h-3.5 w-3.5" />
+                  <span>Winner (Who WON the money)</span>
+                </label>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {MEMBERS.map((m) => {
+                    const info = MEMBER_INFO[m];
+                    const isSelected = paidBy === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => handleWinnerChange(m)}
+                        className={`flex items-center justify-center gap-1.5 p-2 rounded-2xl border text-xs font-semibold transition-all min-h-[44px] ${
+                          isSelected
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-sm'
+                            : 'bg-black/60 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        <span className="text-sm">{info.avatar}</span>
+                        <span>{info.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Loser(s) Section */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-rose-400 flex items-center gap-1.5">
+                    <Coins className="h-3.5 w-3.5" />
+                    <span>Loser(s) (Who LOST the money)</span>
+                  </label>
+
                   <button
-                    key={m}
                     type="button"
-                    onClick={() => handleWinnerChange(m)}
-                    className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold transition-all ${
-                      isSelected
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow'
-                        : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
-                    }`}
+                    onClick={toggleSelectAllOwers}
+                    className="text-[11px] text-zinc-400 hover:text-zinc-200 font-medium"
                   >
-                    <span className="text-sm">{info.avatar}</span>
-                    <span>{info.name}</span>
+                    {owers.length === MEMBERS.filter((m) => m !== paidBy).length
+                      ? 'Deselect All'
+                      : 'Select All'}
                   </button>
-                );
-              })}
-            </div>
-          </div>
+                </div>
 
-          {/* Minimalist Loser(s) Section */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-rose-400 flex items-center gap-1.5">
-                <Coins className="h-3.5 w-3.5" />
-                <span>Loser(s) (Who LOST the money)</span>
-              </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {MEMBERS.map((m) => {
+                    const info = MEMBER_INFO[m];
+                    const isWinner = paidBy === m;
+                    const isChecked = owers.includes(m);
 
-              <button
-                type="button"
-                onClick={toggleSelectAllOwers}
-                className="text-[11px] text-slate-400 hover:text-slate-200 font-medium"
-              >
-                {owers.length === MEMBERS.filter((m) => m !== paidBy).length
-                  ? 'Deselect All'
-                  : 'Select All'}
-              </button>
-            </div>
+                    if (isWinner) {
+                      return (
+                        <div
+                          key={m}
+                          className="flex items-center justify-center gap-1.5 p-2 rounded-2xl border border-zinc-800/40 bg-black/30 text-zinc-600 text-xs font-medium cursor-not-allowed opacity-40 min-h-[44px]"
+                          title="Winner is automatically excluded from losers list"
+                        >
+                          <span className="text-sm">{info.avatar}</span>
+                          <span>{info.name}</span>
+                        </div>
+                      );
+                    }
 
-            <div className="grid grid-cols-4 gap-2">
-              {MEMBERS.map((m) => {
-                const info = MEMBER_INFO[m];
-                const isWinner = paidBy === m;
-                const isChecked = owers.includes(m);
-
-                if (isWinner) {
-                  return (
-                    <div
-                      key={m}
-                      className="flex items-center justify-center gap-1.5 p-2 rounded-xl border border-slate-800/40 bg-slate-950/30 text-slate-600 text-xs font-medium cursor-not-allowed opacity-50"
-                      title="Winner is automatically excluded from losers list"
-                    >
-                      <span className="text-sm">{info.avatar}</span>
-                      <span>{info.name}</span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => toggleOwer(m)}
-                    className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-semibold transition-all ${
-                      isChecked
-                        ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow'
-                        : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <span className="text-sm">{info.avatar}</span>
-                    <span>{info.name}</span>
-                    {isChecked ? (
-                      <CheckSquare className="h-3.5 w-3.5 text-rose-400 ml-0.5" />
-                    ) : (
-                      <Square className="h-3.5 w-3.5 text-slate-600 ml-0.5" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => toggleOwer(m)}
+                        className={`flex items-center justify-center gap-1.5 p-2 rounded-2xl border text-xs font-semibold transition-all min-h-[44px] ${
+                          isChecked
+                            ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-sm'
+                            : 'bg-black/60 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        <span className="text-sm">{info.avatar}</span>
+                        <span>{info.name}</span>
+                        {isChecked ? (
+                          <CheckSquare className="h-3.5 w-3.5 text-rose-400 ml-0.5" />
+                        ) : (
+                          <Square className="h-3.5 w-3.5 text-zinc-600 ml-0.5" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors"
+              className="min-h-[44px] px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
+              className="min-h-[44px] px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-full shadow-lg shadow-blue-600/20 transition-all border border-blue-400/20"
             >
-              {initialData ? 'Update Entry' : 'Save Entry'}
+              {initialData ? 'Update Entry' : status === 'pending' ? 'Save Pending Bet' : 'Save Entry'}
             </button>
           </div>
         </form>

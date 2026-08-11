@@ -17,11 +17,15 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     date TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     is_settlement BOOLEAN DEFAULT FALSE,
-    status TEXT DEFAULT 'completed'
+    status TEXT DEFAULT 'completed',
+    bettor TEXT,
+    opponent TEXT
 );
 
 -- Migration statement for existing table installations
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'completed';
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS bettor TEXT;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS opponent TEXT;
 
 -- 2. Enable Row Level Security (RLS)
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;

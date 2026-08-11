@@ -19,6 +19,8 @@ export interface DBTransaction {
   created_at: string;
   is_settlement: boolean;
   status?: string;
+  bettor?: string;
+  opponent?: string;
 }
 
 export function dbRowToTransaction(row: DBTransaction): Transaction {
@@ -36,6 +38,8 @@ export function dbRowToTransaction(row: DBTransaction): Transaction {
     createdAt: row.created_at,
     isSettlement: Boolean(row.is_settlement),
     status: (row.status as any) || 'completed',
+    bettor: (row.bettor as any) || undefined,
+    opponent: (row.opponent as any) || undefined,
   };
 }
 
@@ -54,6 +58,8 @@ export function transactionToDbRow(tx: Transaction): DBTransaction {
     created_at: tx.createdAt,
     is_settlement: Boolean(tx.isSettlement),
     status: tx.status || 'completed',
+    bettor: tx.bettor || undefined,
+    opponent: tx.opponent || undefined,
   };
 }
 

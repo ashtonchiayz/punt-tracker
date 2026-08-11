@@ -98,8 +98,24 @@ export function calculatePairwiseMatrix(
 
     MEMBERS.forEach((ower) => {
       if (ower !== payer) {
-        // ower owes payer their share
-        matrix[ower][payer] += shares[ower];
+        if (tx.isSettlement) {
+          // Payer is settling debt owed to ower
+          matrix[payer][ower] -= shares[ower];
+        } else {
+          // Normal expense/wager: ower owes payer their share
+          matrix[ower][payer] += shares[ower];
+        }
+      }
+    });
+  });
+
+  // Normalize any negative matrix cells (e.g. if payer overpaid a debt)
+  MEMBERS.forEach((r) => {
+    MEMBERS.forEach((c) => {
+      if (r !== c && matrix[r][c] < 0) {
+        const overflow = Math.abs(matrix[r][c]);
+        matrix[c][r] += overflow;
+        matrix[r][c] = 0;
       }
     });
   });

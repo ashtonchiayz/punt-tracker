@@ -44,6 +44,8 @@ export interface Transaction {
   createdAt: string; // ISO string timestamp
   isSettlement?: boolean;
   status?: 'pending' | 'completed';
+  bettor?: Member;
+  opponent?: Member;
 }
 
 export interface MemberBalance {
