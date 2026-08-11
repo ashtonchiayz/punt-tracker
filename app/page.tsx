@@ -19,6 +19,7 @@ export default function Home() {
   const [activeCurrency, setActiveCurrency] = useState<Currency | 'all'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [modalDefaultStatus, setModalDefaultStatus] = useState<'completed' | 'pending'>('completed');
   const [isLoading, setIsLoading] = useState(true);
   const [storageMode, setStorageMode] = useState<StorageMode>('local');
 
@@ -126,11 +127,13 @@ export default function Home() {
 
   const handleOpenEdit = (tx: Transaction) => {
     setEditingTransaction(tx);
+    setModalDefaultStatus(tx.status || 'completed');
     setIsModalOpen(true);
   };
 
-  const handleOpenAdd = () => {
+  const handleOpenAdd = (defaultStatus?: 'completed' | 'pending') => {
     setEditingTransaction(null);
+    setModalDefaultStatus(defaultStatus || 'completed');
     setIsModalOpen(true);
   };
 
@@ -143,7 +146,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-zinc-100 flex flex-col selection:bg-blue-500 selection:text-white pb-20 md:pb-6">
       {/* Top Navbar */}
-      <Navbar onOpenAddModal={handleOpenAdd} storageMode={storageMode} />
+      <Navbar onOpenAddModal={() => handleOpenAdd('completed')} storageMode={storageMode} />
 
       {/* Main Content Area */}
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 space-y-6">
@@ -180,7 +183,7 @@ export default function Home() {
                 activeCurrency={activeCurrency}
                 onResolveBet={handleResolveBet}
                 onDeletePending={handleDeleteTransaction}
-                onOpenAddModal={handleOpenAdd}
+                onOpenAddModal={() => handleOpenAdd('pending')}
               />
             </section>
 
@@ -199,7 +202,7 @@ export default function Home() {
 
       {/* Mobile Sticky Floating Action Button (FAB) */}
       <button
-        onClick={handleOpenAdd}
+        onClick={() => handleOpenAdd('completed')}
         className="md:hidden fixed bottom-5 right-5 z-40 flex items-center gap-2 min-h-[48px] px-5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-full shadow-2xl shadow-blue-600/40 active:scale-95 transition-all border border-blue-400/30"
       >
         <Plus className="h-5 w-5" />
@@ -233,6 +236,7 @@ export default function Home() {
         }}
         onSave={handleSaveTransaction}
         initialData={editingTransaction}
+        defaultStatus={modalDefaultStatus}
       />
     </div>
   );

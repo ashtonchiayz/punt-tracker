@@ -19,6 +19,7 @@ interface ExpenseModalProps {
   onClose: () => void;
   onSave: (txData: Omit<Transaction, 'id' | 'createdAt'>, existingId?: string) => void;
   initialData?: Transaction | null;
+  defaultStatus?: 'completed' | 'pending';
 }
 
 const PRESET_DESCRIPTIONS = ['Dinner', 'Spin class', 'Arb wager', 'Joint booking', 'Transport', 'Car rental'];
@@ -28,6 +29,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   onClose,
   onSave,
   initialData,
+  defaultStatus = 'completed',
 }) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -79,11 +81,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setExactSplits({ Sidd: '', Chia: '', Yh: '', Cy: '' });
       setCategory('Bet');
       setDate(new Date().toISOString().split('T')[0]);
-      setStatus('completed');
+      setStatus(defaultStatus);
       setBettor('Chia');
       setOpponent('Yh');
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, defaultStatus]);
 
   if (!isOpen) return null;
 
