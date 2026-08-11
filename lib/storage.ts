@@ -13,7 +13,7 @@ export interface DBTransaction {
   paid_by: string;
   split_mode: string;
   owers: string[];
-  exact_splits: Record<string, number> | null;
+  exact_splits: Record<string, any> | null;
   category: string;
   date: string;
   created_at: string;
@@ -24,6 +24,9 @@ export interface DBTransaction {
 }
 
 export function dbRowToTransaction(row: DBTransaction): Transaction {
+  const extra = row.exact_splits || {};
+  const rawStatus = row.status || extra._status || 'completed';
+
   return {
     id: row.id,
     description: row.description,
@@ -37,13 +40,20 @@ export function dbRowToTransaction(row: DBTransaction): Transaction {
     date: row.date,
     createdAt: row.created_at,
     isSettlement: Boolean(row.is_settlement),
-    status: (row.status as any) === 'pending' ? 'pending' : 'completed',
-    bettor: (row.bettor as any) || undefined,
-    opponent: (row.opponent as any) || undefined,
+    status: rawStatus === 'pending' ? 'pending' : 'completed',
+    bettor: (row.bettor as any) || extra._bettor || undefined,
+    opponent: (row.opponent as any) || extra._opponent || undefined,
   };
 }
 
 export function transactionToDbRow(tx: Transaction): DBTransaction {
+  const exact_splits: Record<string, any> = {
+    ...(tx.exactSplits || {}),
+    _status: tx.status || 'completed',
+    _bettor: tx.bettor || null,
+    _opponent: tx.opponent || null,
+  };
+
   return {
     id: tx.id,
     description: tx.description,
@@ -52,7 +62,7 @@ export function transactionToDbRow(tx: Transaction): DBTransaction {
     paid_by: tx.paidBy,
     split_mode: tx.splitMode,
     owers: tx.owers,
-    exact_splits: tx.exactSplits ? (tx.exactSplits as Record<string, number>) : null,
+    exact_splits,
     category: tx.category,
     date: tx.date,
     created_at: tx.createdAt,
@@ -260,10 +270,18 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
 
     try {
       const dbRow = transactionToDbRow(newTx);
-      const { error } = await supabase.from('transactions').insert([dbRow]);
+      let { error } = await supabase.from('transactions').insert([dbRow]);
 
       if (error) {
-        console.error('Supabase insert error, saved locally:', error);
+        console.warn('Supabase insert notice, attempting fallback row:', error);
+        const basicRow: any = { ...dbRow };
+        delete basicRow.status;
+        delete basicRow.bettor;
+        delete basicRow.opponent;
+        const res = await supabase.from('transactions').insert([basicRow]);
+        if (res.error) {
+          console.error('Supabase basic insert error:', res.error);
+        }
       }
 
       return newTx;
@@ -283,13 +301,24 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
 
     try {
       const dbRow = transactionToDbRow(updatedTx);
-      const { error } = await supabase
+      let { error } = await supabase
         .from('transactions')
         .update(dbRow)
         .eq('id', updatedTx.id);
 
       if (error) {
-        console.error('Supabase update error:', error);
+        console.warn('Supabase update notice, attempting fallback row:', error);
+        const basicRow: any = { ...dbRow };
+        delete basicRow.status;
+        delete basicRow.bettor;
+        delete basicRow.opponent;
+        const res = await supabase
+          .from('transactions')
+          .update(basicRow)
+          .eq('id', updatedTx.id);
+        if (res.error) {
+          console.error('Supabase basic update error:', res.error);
+        }
       }
     } catch (err) {
       console.error('Failed to update transaction in Supabase:', err);
